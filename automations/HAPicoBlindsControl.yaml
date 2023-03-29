@@ -1,7 +1,7 @@
 blueprint:
   name: HABlindsControl
   description: "Control multiple blinds using a Pico remote."
-  source_url: https://github.com/YourUsername/HABlindsControl/blob/main/automations/HABlindsControl.yaml
+  source_url: https://github.com/Deadlocked007/HAPico3BRL/blob/main/automations/HAPicoBlindsControl.yaml
 
   domain: automation
 
@@ -111,7 +111,7 @@ action:
     - conditions:
         - condition: trigger
           id: up_pressed
-      sequence
+      sequence:
         - repeat:
             sequence:
               - service: cover.set_cover_position
