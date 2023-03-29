@@ -1,0 +1,161 @@
+blueprint:
+  name: HAPicoBlindsControl
+  description: "Control blinds using a Pico remote."
+  source_url: https://github.com/Deadlocked007/HAPico3BRL/blob/main/automations/HAPicoBlindsControl.yaml
+
+  domain: automation
+
+  input:
+    pico_device:
+      name: Pico Device
+      description: "Pico remote to associate with the blinds entity."
+      selector:
+        device:
+    blinds_entity:
+      name: Blinds Entity
+      description: "Blinds entity to control."
+      selector:
+        entity:
+          domain: cover
+    step:
+      name: Position Step Percentage
+      description: "The percentage of position to which the blinds are changed when the RAISE/LOWER buttons are pressed and held."
+      selector:
+        number:
+          min: 1
+          max: 33
+          unit_of_measurement: percentage
+      default: 10
+    speed:
+      name: Position Transition Speed
+      description: "The rate of speed in milliseconds at which the position of the blinds will be changed."
+      selector:
+        number:
+          min: 100
+          max: 2000
+          unit_of_measurement: milliseconds
+      default: 500
+
+trigger:
+  - platform: device
+    device_id: !input pico_device
+    domain: lutron_caseta
+    type: press
+    subtype: 'on'
+    id: on_pressed
+  - platform: device
+    device_id: !input pico_device
+    domain: lutron_caseta
+    type: press
+    subtype: 'raise'
+    id: up_pressed
+  - platform: device
+    device_id: !input pico_device
+    domain: lutron_caseta
+    type: release
+    subtype: 'raise'
+    id: up_released
+  - platform: device
+    device_id: !input pico_device
+    domain: lutron_caseta
+    type: press
+    subtype: 'stop'
+    id: stop_pressed
+  - platform: device
+    device_id: !input pico_device
+    domain: lutron_caseta
+    type: press
+    subtype: 'lower'
+    id: down_pressed
+  - platform: device
+    device_id: !input pico_device
+    domain: lutron_caseta
+    type: release
+    subtype: 'lower'
+    id: down_released
+  - platform: device
+    device_id: !input pico_device
+    domain: lutron_caseta
+    type: press
+    subtype: 'off'
+    id: off_pressed
+
+variables:
+  step: !input step
+  speed: !input speed
+
+condition: []
+
+action:
+  - choose:
+    - conditions:
+        - condition: trigger
+          id: on_pressed
+      sequence:
+        - service: cover.open_cover
+          target:
+            entity_id: !input blinds_entity
+    - conditions:
+        - condition: trigger
+          id: up_pressed
+      sequence:
+        - repeat:
+            sequence:
+              - service: cover.set_cover_position
+                data:
+                  position: "{{ (state_attr(blinds_entity, 'current_position') | int) + step }}"
+                target:
+                  entity_id: !input blinds_entity
+              - delay:
+                  milliseconds: !input speed
+            until:
+              - condition: numeric_state
+                entity_id: !input blinds_entity
+                attribute: current_position
+                state: "100"
+    - conditions:
+        - condition: trigger
+          id: up_released
+      sequence:
+        - delay:
+            milliseconds: 100
+    - conditions:
+        - condition: trigger
+          id: stop_pressed
+      sequence:
+        - service: cover.stop_cover
+          target:
+            entity_id: !input blinds_entity
+    - conditions:
+        - condition: trigger
+          id: down_pressed
+      sequence:
+        - repeat:
+            sequence:
+              - service: cover.set_cover_position
+                data:
+                  position: "{{ (state_attr(blinds_entity, 'current_position') | int) - step }}"
+                target:
+                  entity_id: !input blinds_entity
+              - delay:
+                  milliseconds: !input speed
+            until:
+              - condition: numeric_state
+                entity_id: !input blinds_entity
+                attribute: current_position
+                state: "0"
+    - conditions:
+        - condition: trigger
+          id: down_released
+      sequence:
+        - delay:
+            milliseconds: 100
+    - conditions:
+        - condition: trigger
+          id: off_pressed
+      sequence:
+        - service: cover.close_cover
+          target:
+            entity_id: !input blinds_entity
+
+mode: restart
