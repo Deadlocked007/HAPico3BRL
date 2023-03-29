@@ -1,6 +1,6 @@
 blueprint:
-  name: HAPicoBlindsControl
-  description: "Control blinds using a Pico remote."
+  name: HABlindsControl
+  description: "Control multiple blinds using a Pico remote."
   source_url: https://github.com/Deadlocked007/HAPico3BRL/blob/main/automations/HAPicoBlindsControl.yaml
 
   domain: automation
@@ -8,15 +8,16 @@ blueprint:
   input:
     pico_device:
       name: Pico Device
-      description: "Pico remote to associate with the blinds entity."
+      description: "Pico remote to associate with the blinds entities."
       selector:
         device:
-    blinds_entity:
-      name: Blinds Entity
-      description: "Blinds entity to control."
+    blinds_entities:
+      name: Blinds Entities
+      description: "Blinds entities to control."
       selector:
         entity:
           domain: cover
+          multiple: true
     step:
       name: Position Step Percentage
       description: "The percentage of position to which the blinds are changed when the RAISE/LOWER buttons are pressed and held."
@@ -35,6 +36,15 @@ blueprint:
           max: 2000
           unit_of_measurement: milliseconds
       default: 500
+    favorite_position:
+      name: Favorite Position Percentage
+      description: "The favorite position percentage to set when the favorite (middle) button is pressed."
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: percentage
+      default: 50
 
 trigger:
   - platform: device
@@ -83,6 +93,7 @@ trigger:
 variables:
   step: !input step
   speed: !input speed
+  favorite_position: !input favorite_position
 
 condition: []
 
@@ -94,7 +105,7 @@ action:
       sequence:
         - service: cover.open_cover
           target:
-            entity_id: !input blinds_entity
+            entity_id: !input blinds_entities
     - conditions:
         - condition: trigger
           id: up_pressed
@@ -105,12 +116,12 @@ action:
                 data:
                   position: "{{ (state_attr(blinds_entity, 'current_position') | int) + step }}"
                 target:
-                  entity_id: !input blinds_entity
+                  entity_id: !input blinds_entities
               - delay:
                   milliseconds: !input speed
             until:
               - condition: numeric_state
-                entity_id: !input blinds_entity
+                entity_id: !input blinds_entities
                 attribute: current_position
                 state: "100"
     - conditions:
@@ -123,9 +134,11 @@ action:
         - condition: trigger
           id: stop_pressed
       sequence:
-        - service: cover.stop_cover
+        - service: cover.set_cover_position
+          data:
+            position: !input favorite_position
           target:
-            entity_id: !input blinds_entity
+            entity_id: !input blinds_entities
     - conditions:
         - condition: trigger
           id: down_pressed
@@ -136,12 +149,12 @@ action:
                 data:
                   position: "{{ (state_attr(blinds_entity, 'current_position') | int) - step }}"
                 target:
-                  entity_id: !input blinds_entity
+                  entity_id: !input blinds_entities
               - delay:
                   milliseconds: !input speed
             until:
               - condition: numeric_state
-                entity_id: !input blinds_entity
+                entity_id: !input blinds_entities
                 attribute: current_position
                 state: "0"
     - conditions:
@@ -156,6 +169,6 @@ action:
       sequence:
         - service: cover.close_cover
           target:
-            entity_id: !input blinds_entity
+            entity_id: !input blinds_entities
 
 mode: restart
