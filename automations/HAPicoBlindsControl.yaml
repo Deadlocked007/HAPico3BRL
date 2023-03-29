@@ -1,174 +1,141 @@
 blueprint:
-  name: HABlindsControl
-  description: "Control multiple blinds using a Pico remote."
-  source_url: https://github.com/Deadlocked007/HAPico3BRL/blob/main/automations/HAPicoBlindsControl.yaml
-
+  name: Blind Control
+  description: Control a set of blinds using Lutron Caseta Pico remote
   domain: automation
-
   input:
     pico_device:
       name: Pico Device
-      description: "Pico remote to associate with the blinds entities."
+      description: The device ID of the Lutron Caseta Pico remote
       selector:
         device:
-    blinds_entities:
-      name: Blinds Entities
-      description: "Blinds entities to control."
-      selector:
-        entity:
-          domain: cover
-          multiple: true
-    step:
-      name: Position Step Percentage
-      description: "The percentage of position to which the blinds are changed when the RAISE/LOWER buttons are pressed and held."
-      selector:
-        number:
-          min: 1
-          max: 33
-          unit_of_measurement: percentage
-      default: 10
-    speed:
-      name: Position Transition Speed
-      description: "The rate of speed in milliseconds at which the position of the blinds will be changed."
-      selector:
-        number:
-          min: 100
-          max: 2000
-          unit_of_measurement: milliseconds
-      default: 500
-    favorite_position:
-      name: Favorite Position Percentage
-      description: "The favorite position percentage to set when the favorite (middle) button is pressed."
-      selector:
-        number:
-          min: 0
-          max: 100
-          unit_of_measurement: percentage
-      default: 50
-
-trigger:
-  - platform: device
-    device_id: !input pico_device
-    domain: lutron_caseta
-    type: press
-    subtype: 'on'
-    id: on_pressed
-  - platform: device
-    device_id: !input pico_device
-    domain: lutron_caseta
-    type: press
-    subtype: 'raise'
-    id: up_pressed
-  - platform: device
-    device_id: !input pico_device
-    domain: lutron_caseta
-    type: release
-    subtype: 'raise'
-    id: up_released
-  - platform: device
-    device_id: !input pico_device
-    domain: lutron_caseta
-    type: press
-    subtype: 'stop'
-    id: stop_pressed
-  - platform: device
-    device_id: !input pico_device
-    domain: lutron_caseta
-    type: press
-    subtype: 'lower'
-    id: down_pressed
-  - platform: device
-    device_id: !input pico_device
-    domain: lutron_caseta
-    type: release
-    subtype: 'lower'
-    id: down_released
-  - platform: device
-    device_id: !input pico_device
-    domain: lutron_caseta
-    type: press
-    subtype: 'off'
-    id: off_pressed
-
-variables:
-  step: !input step
-  speed: !input speed
-  favorite_position: !input favorite_position
-
-condition: []
-
-action:
-  - choose:
-    - conditions:
-        - condition: trigger
-          id: on_pressed
-      sequence:
-        - service: cover.open_cover
-          target:
-            entity_id: !input blinds_entities
-    - conditions:
-        - condition: trigger
-          id: up_pressed
-      sequence:
-        - repeat:
+          integration: lutron_caseta
+          model: PJ2-3BRL
+  trigger:
+    - platform: device
+      device_id: !input pico_device
+      domain: lutron_caseta
+      type: press
+      subtype: 'on'
+      id: on_pressed
+    - platform: device
+      device_id: !input pico_device
+      domain: lutron_caseta
+      type: press
+      subtype: 'raise'
+      id: up_pressed
+    - platform: device
+      device_id: !input pico_device
+      domain: lutron_caseta
+      type: release
+      subtype: 'raise'
+      id: up_released
+    - platform: device
+      device_id: !input pico_device
+      domain: lutron_caseta
+      type: press
+      subtype: 'stop'
+      id: stop_pressed
+    - platform: device
+      device_id: !input pico_device
+      domain: lutron_caseta
+      type: press
+      subtype: 'lower'
+      id: down_pressed
+    - platform: device
+      device_id: !input pico_device
+      domain: lutron_caseta
+      type: release
+      subtype: 'lower'
+      id: down_released
+    - platform: device
+      device_id: !input pico_device
+      domain: lutron_caseta
+      type: press
+      subtype: 'off'
+      id: off_pressed
+  mode: single
+  max_exceeded: silent
+  variables:
+    blind_position: "{{ state_attr(blind_entity, 'current_position') }}"
+    blind_entity: "{{ state_attr(blind_device, 'entity_id') }}"
+    blind_device: "{{ state_attr(blind_group, 'entity_id') }}"
+    blind_max: "{{ state_attr(blind_entity, 'max') }}"
+    blind_min: "{{ state_attr(blind_entity, 'min') }}"
+  action:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: on_pressed
+          sequence:
+            - service: homeassistant.turn_on
+              entity_id: "{{ blind_device }}"
+        - conditions:
+            - condition: trigger
+              id: up_pressed
+          sequence:
+            - repeat:
+                count: 10
+                sequence:
+                  - service: cover.set_cover_position
+                    data:
+                      entity_id: "{{ blind_entity }}"
+                      position: "{{ min(blind_max, blind_position + 10) }}"
+                  - delay: 1
+                  - set_variable:
+                      variable: blind_position
+                      value: "{{ state_attr(blind_entity, 'current_position') }}"
+                  - condition: template
+                    value_template: "{{ blind_position == blind_max }}"
+                    sequence:
+                      - break
+        - conditions:
+            - condition: trigger
+              id: up_released
+          sequence:
+            - service: cover.stop_cover
+              entity_id: "{{ blind_entity }}"
+        - conditions:
+            - condition: trigger
+              id: stop_pressed
+          sequence:
+            - service: cover.stop_cover
+              entity_id: "{{ blind_entity }}"
+        - conditions:
+            - condition: trigger
+              id: down_pressed
+          sequence:
+            - repeat:
+                count: 10
             sequence:
               - service: cover.set_cover_position
                 data:
-                  position: "{{ (state_attr(blinds_entity, 'current_position') | int) + step }}"
-                target:
-                  entity_id: !input blinds_entities
-              - delay:
-                  milliseconds: !input speed
-            until:
-              - condition: numeric_state
-                entity_id: !input blinds_entities
-                attribute: current_position
-                state: "100"
-    - conditions:
-        - condition: trigger
-          id: up_released
-      sequence:
-        - delay:
-            milliseconds: 100
-    - conditions:
-        - condition: trigger
-          id: stop_pressed
-      sequence:
-        - service: cover.set_cover_position
-          data:
-            position: !input favorite_position
-          target:
-            entity_id: !input blinds_entities
-    - conditions:
-        - condition: trigger
-          id: down_pressed
-      sequence:
-        - repeat:
-            sequence:
-              - service: cover.set_cover_position
-                data:
-                  position: "{{ (state_attr(blinds_entity, 'current_position') | int) - step }}"
-                target:
-                  entity_id: !input blinds_entities
-              - delay:
-                  milliseconds: !input speed
-            until:
-              - condition: numeric_state
-                entity_id: !input blinds_entities
-                attribute: current_position
-                state: "0"
+                  entity_id: "{{ blind_entity }}"
+                  position: "{{ max(blind_min, blind_position - 10) }}"
+              - delay: 1
+              - set_variable:
+                  variable: blind_position
+                  value: "{{ state_attr(blind_entity, 'current_position') }}"
+              - condition: template
+                value_template: "{{ blind_position == blind_min }}"
+                sequence:
+                  - break
     - conditions:
         - condition: trigger
           id: down_released
       sequence:
-        - delay:
-            milliseconds: 100
+        - service: cover.stop_cover
+          entity_id: "{{ blind_entity }}"
     - conditions:
         - condition: trigger
           id: off_pressed
       sequence:
-        - service: cover.close_cover
-          target:
-            entity_id: !input blinds_entities
-
-mode: restart
+        - service: homeassistant.turn_off
+          entity_id: "{{ blind_device }}"
+- delay: 1
+- set_variable:
+    variable: blind_position
+    value: "{{ state_attr(blind_entity, 'current_position') }}"
+- input_select.select_option:
+    data:
+      entity_id: input_select.blind_position
+      option: "{{ blind_position }}"
