@@ -1,0 +1,90 @@
+blueprint:
+  name: Lutron Pico Fan Control
+  description: Control a fan using a Lutron Pico remote.
+  domain: automation
+  input:
+    pico_remote:
+      name: Lutron Pico Remote
+      description: The Lutron Pico remote to use for controlling the fan.
+      entity:
+    fan_entity:
+      name: Fan
+      description: The fan entity to control.
+      selector:
+        entity:
+          domain: fan
+
+trigger:
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'on'
+    id: on_pressed
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'raise'
+    id: up_pressed
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: release
+    subtype: 'raise'
+    id: up_released
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'stop'
+    id: stop_pressed
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'lower'
+    id: down_pressed
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: release
+    subtype: 'lower'
+    id: down_released
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'off'
+    id: off_pressed
+
+action:
+  - variables:
+      current_speed: "{{ state_attr(states('fan_entity'), 'speed') }}"
+  - choose:
+      - conditions: "{{ trigger.id == 'on_pressed' }}"
+        sequence:
+          - service: fan.turn_on
+            target:
+              entity_id: !input 'fan_entity'
+            data:
+              speed: 100
+      - conditions: "{{ trigger.id == 'off_pressed' }}"
+        sequence:
+          - service: fan.turn_off
+            target:
+              entity_id: !input 'fan_entity'
+      - conditions: "{{ trigger.id == 'up_pressed' }}"
+        sequence:
+          - service: fan.set_speed
+            target:
+              entity_id: !input 'fan_entity'
+            data_template:
+              speed: "{{ 0 if current_speed == 0 else min(current_speed + 25, 100) }}"
+      - conditions: "{{ trigger.id == 'down_pressed' }}"
+        sequence:
+          - service: fan.set_speed
+            target:
+              entity_id: !input 'fan_entity'
+            data_template:
+              speed: "{{ max(current_speed - 25, 0) }}"
