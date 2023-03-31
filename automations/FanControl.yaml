@@ -10,7 +10,6 @@ blueprint:
         device:
           integration: lutron_caseta
           manufacturer: Lutron
-          model: Pico
     fan_entity:
       name: Fan
       description: The fan entity to control.
