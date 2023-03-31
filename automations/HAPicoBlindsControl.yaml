@@ -176,3 +176,4 @@ action:
             entity_id: !input blinds_entities
 
 mode: restart
+

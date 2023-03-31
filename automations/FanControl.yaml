@@ -1,0 +1,67 @@
+blueprint:
+  name: Lutron Pico Fan Control
+  description: Control a fan using a Lutron Pico remote.
+  domain: automation
+  input:
+    pico_remote:
+      name: Lutron Pico Remote
+      description: The Lutron Pico remote to use for controlling the fan.
+      selector:
+        device:
+          integration: lutron_caseta
+          manufacturer: Lutron
+          model: Pico
+    fan_entity:
+      name: Fan
+      description: The fan entity to control.
+      selector:
+        entity:
+          domain: fan
+
+trigger:
+  platform: event
+  event_type: lutron_caseta_button_event
+  event_data:
+    device_id: !input 'pico_remote'
+
+action:
+  - variables:
+      button_number: "{{ trigger.event.data.button_number }}"
+      button_action: "{{ trigger.event.data.action }}"
+      current_speed: "{{ state_attr(states('fan_entity'), 'speed') }}"
+  - choose:
+      - conditions:
+          - "{{ button_number == 2 }}"
+          - "{{ button_action == 'pressed' }}"
+        sequence:
+          - service: fan.turn_on
+            target:
+              entity_id: !input 'fan_entity'
+            data:
+              speed: 100
+      - conditions:
+          - "{{ button_number == 4 }}"
+          - "{{ button_action == 'pressed' }}"
+        sequence:
+          - service: fan.turn_off
+            target:
+              entity_id: !input 'fan_entity'
+      - conditions:
+          - "{{ button_number == 3 }}"
+          - "{{ button_action == 'pressed' }}"
+        sequence:
+          - service: fan.set_speed
+            target:
+              entity_id: !input 'fan_entity'
+            data_template:
+              speed: "{{ 0 if current_speed == 0 else min(current_speed + 25, 100) }}"
+      - conditions:
+          - "{{ button_number == 1 }}"
+          - "{{ button_action == 'pressed' }}"
+        sequence:
+          - service: fan.set_speed
+            target:
+              entity_id: !input 'fan_entity'
+            data_template:
+              speed: "{{ max(current_speed - 25, 0) }}"
+
