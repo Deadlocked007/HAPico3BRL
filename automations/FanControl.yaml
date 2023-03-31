@@ -7,7 +7,10 @@ blueprint:
       name: Lutron Pico Remote
       description: The Lutron Pico remote to use for controlling the fan.
       selector:
-        entity:
+        device:
+          integration: "lutron_caseta"
+          manufacturer: "Lutron Electronics Co., Inc"
+          model: "PJ2-3BRL-GXX-X01 (Pico3ButtonRaiseLower)"
     fan_entity:
       name: Fan
       description: The fan entity to control.
@@ -16,49 +19,76 @@ blueprint:
           domain: fan
 
 trigger:
-  platform: event
-  event_type: lutron_caseta_button_event
-  event_data:
-    device_id: !input 'pico_remote'
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'on'
+    id: on_pressed
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'raise'
+    id: up_pressed
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: release
+    subtype: 'raise'
+    id: up_released
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'stop'
+    id: stop_pressed
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'lower'
+    id: down_pressed
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: release
+    subtype: 'lower'
+    id: down_released
+  - platform: device
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: 'off'
+    id: off_pressed
 
 action:
   - variables:
-      button_number: "{{ trigger.event.data.button_number }}"
-      button_action: "{{ trigger.event.data.action }}"
       current_speed: "{{ state_attr(states('fan_entity'), 'speed') }}"
   - choose:
-      - conditions:
-          - "{{ button_number == 2 }}"
-          - "{{ button_action == 'pressed' }}"
+      - conditions: "{{ trigger.id == 'on_pressed' }}"
         sequence:
           - service: fan.turn_on
             target:
               entity_id: !input 'fan_entity'
             data:
               speed: 100
-      - conditions:
-          - "{{ button_number == 4 }}"
-          - "{{ button_action == 'pressed' }}"
+      - conditions: "{{ trigger.id == 'off_pressed' }}"
         sequence:
           - service: fan.turn_off
             target:
               entity_id: !input 'fan_entity'
-      - conditions:
-          - "{{ button_number == 3 }}"
-          - "{{ button_action == 'pressed' }}"
+      - conditions: "{{ trigger.id == 'up_pressed' }}"
         sequence:
           - service: fan.set_speed
             target:
               entity_id: !input 'fan_entity'
             data_template:
               speed: "{{ 0 if current_speed == 0 else min(current_speed + 25, 100) }}"
-      - conditions:
-          - "{{ button_number == 1 }}"
-          - "{{ button_action == 'pressed' }}"
+      - conditions: "{{ trigger.id == 'down_pressed' }}"
         sequence:
           - service: fan.set_speed
             target:
               entity_id: !input 'fan_entity'
             data_template:
               speed: "{{ max(current_speed - 25, 0) }}"
-
