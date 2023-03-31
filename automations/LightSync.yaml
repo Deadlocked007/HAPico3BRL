@@ -1,0 +1,32 @@
+alias: light 1 --> 2
+description: ''
+trigger:
+  - platform: state
+    entity_id: light.light1
+condition:
+  - condition: template
+    value_template: >
+      {{ not is_state_attr('light.light1', 'brightness',
+      states.light.light2.attributes.brightness ) }}
+action:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: light.light1
+            state: 'off'
+        sequence:
+          - service: light.turn_off
+            target:
+              entity_id: light.light2
+      - conditions:
+          - condition: state
+            entity_id: light.light1
+            state: 'on'
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: light.light2
+            data:
+              brightness: '{{ trigger.to_state.attributes.brightness }}'
+    default: []
+mode: single
