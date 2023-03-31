@@ -8,8 +8,6 @@ blueprint:
       description: The Lutron Pico remote to use for controlling the fan.
       selector:
         device:
-          integration: lutron_caseta
-          manufacturer: Lutron
     fan_entity:
       name: Fan
       description: The fan entity to control.
